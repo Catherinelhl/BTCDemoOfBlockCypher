@@ -33,9 +33,17 @@ public class RetrofitFactory {
     }
 
     public static Retrofit getInstance() {
+
+
+        //BlockChain
 //        测试：https://testnet.blockchain.info
 //        主网：https://blockchain.info
-        return getMainInstance("https://testnet.blockchain.info");
+
+
+        //BlockCypher
+        //test https://api.blockcypher.com/v1/btc/test3
+        //main https://api.blockcypher.com/v1/btc/main
+        return getMainInstance("https://api.blockcypher.com/v1/btc/main/");
     }
 
     /**
