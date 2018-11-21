@@ -1,16 +1,18 @@
 package cn.catherine.btcdemoofblockcypher.presenter;
 
 import android.text.TextUtils;
-import cn.catherine.btcdemoofblockcypher.bean.BalanceBean;
-import cn.catherine.btcdemoofblockcypher.bean.CreateTxBean;
-import cn.catherine.btcdemoofblockcypher.bean.InputsBean;
-import cn.catherine.btcdemoofblockcypher.bean.OutputsBean;
+import cn.catherine.btcdemoofblockcypher.bean.*;
 import cn.catherine.btcdemoofblockcypher.constants.Constants;
 import cn.catherine.btcdemoofblockcypher.contract.MainContract;
 import cn.catherine.btcdemoofblockcypher.interactor.MainInteractor;
 import cn.catherine.btcdemoofblockcypher.tool.LogTool;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import org.bitcoinj.core.*;
+import org.bitcoinj.params.MainNetParams;
+import org.bitcoinj.script.Script;
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import retrofit2.Call;
@@ -43,7 +45,7 @@ public class MainPresenterImp implements MainContract.Presenter {
         interactor.getBalance(Constants.address, new Callback<BalanceBean>() {
             @Override
             public void onResponse(Call<BalanceBean> call, Response<BalanceBean> response) {
-                view.getBalanceSuccess(String.valueOf(response.body().getBalance()));
+                view.getBalanceSuccess(String.valueOf(response.body().getFinal_balance()));
             }
 
             @Override
@@ -76,7 +78,7 @@ public class MainPresenterImp implements MainContract.Presenter {
 
     @Override
     public void createTX(String feeString, String toAddress, String amountString) {
-        long staoshi = 10000000;
+        long staoshi = 100000000;
 
         BigDecimal amount = new BigDecimal(amountString).multiply(new BigDecimal(staoshi));
         BigDecimal fee = new BigDecimal(feeString).multiply(new BigDecimal(staoshi));
@@ -108,10 +110,20 @@ public class MainPresenterImp implements MainContract.Presenter {
                 }
                 view.success(responseBody);
                 try {
-                    JSONObject jsonObject = new JSONObject(response.body());
+                    JSONObject jsonObject = new JSONObject(responseBody);
+                    JSONObject jsonObjectTX = (JSONObject) jsonObject.get("tx");
                     if (jsonObject.has("tosign")) {
-                        String tosign = String.valueOf(jsonObject.get("tosign"));
-                        pushTX(tosign);
+                        JSONArray jsonArray = jsonObject.getJSONArray("tosign");
+                        List<String> list = new ArrayList<String>();
+                        if (jsonArray != null) {
+                            for (int i = 0; i < jsonArray.length(); i++) {
+                                list.add(jsonArray.getString(i));
+                            }
+                        }
+                        SendBean sendBean = new SendBean();
+                        sendBean.setTx(jsonObjectTX);
+                        sendBean.setTosign(list);
+                        pushTX(sendBean);
 
                     }
                 } catch (JSONException e) {
@@ -133,14 +145,34 @@ public class MainPresenterImp implements MainContract.Presenter {
     }
 
     @Override
-    public void pushTX(String rawString) {
-        if (TextUtils.isEmpty(rawString)) {
+    public void pushTX(SendBean sendBean) {
+        if (sendBean == null) {
             view.failure("raw hash is empty!!");
             return;
         }
+        List<String> allSign = sendBean.getTosign();
+        List<String> publicKey = new ArrayList<>();
+        List<String> signature = new ArrayList<>();
+        for (String s : allSign) {
+            LogTool.d(TAG, s);
+            Sha256Hash sha256Hash = new Sha256Hash(Utils.parseAsHexOrBase58(s));
+            TransactionOutPoint outPoint = new TransactionOutPoint(MainNetParams.get(),
+                   1, sha256Hash);
+            Script script = new Script(Utils.parseAsHexOrBase58("pay-to-script-hash"));
+            LogTool.d(TAG, "addSignedInput getTxid:" +s);
+//                DeterministicKey deterministicKey = KeyStorage.getInstance().getBtcDeterministicKeyBySeedAndAddress(mSeed);
+            transaction.addSignedInput(outPoint, script, Constants.privateWIFKey, Transaction.SigHash.ALL, true);
+            Sha256Hash hash = Transaction.hashForSignature(0, script,  Transaction.SigHash.ALL, true);
+            ECKey.ECDSASignature ecSig = sigKey.sign(hash);
+            publicKey.add(Constants.publicKey);
+            signature.add(s);
+        }
+        sendBean.setPubkeys(publicKey);
+        sendBean.setSignatures(signature);
+
+
         //start to sign
-        LogTool.d(TAG, rawString);
-        interactor.pushTX(rawString, new Callback<String>() {
+        interactor.pushTX(new Gson().toJson(sendBean), new Callback<String>() {
             @Override
             public void onResponse(Call<String> call, Response<String> response) {
                 view.success(response.body());

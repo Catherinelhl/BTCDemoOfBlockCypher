@@ -33,15 +33,13 @@ class MainActivity : AppCompatActivity(), MainContract.View {
         btn_get_tx_list.setOnClickListener { presenter.getTransactionList() }
         btn_push.setOnClickListener {
             var amount = et_amount.text.toString()
-
-
             presenter.createTX(
                 Constants.feeString,
                 Constants.toAddress,
                 amount
             )
         }
-        btn_push_xiaodong.setOnClickListener { presenter.pushTX("") }
+        btn_push_xiaodong.setOnClickListener { presenter.pushTX(null) }
         btn_get_tx_status.setOnClickListener { presenter.getTXInfoByHash("") }
     }
 

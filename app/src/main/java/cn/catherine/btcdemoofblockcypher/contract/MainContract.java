@@ -1,5 +1,9 @@
 package cn.catherine.btcdemoofblockcypher.contract;
 
+import cn.catherine.btcdemoofblockcypher.bean.SendBean;
+
+import java.util.List;
+
 /**
  * @projectName: BTCDemoOfBlockCypher
  * @packageName: cn.catherine.btcdemoofblockcypher.contract
@@ -32,6 +36,6 @@ public interface MainContract {
         void createTX(String feeString, String toAddress, String amountString);
         void getTXInfoByHash(String rawHash);
 
-        void pushTX(String rawString);
+        void pushTX( SendBean sendBean);
     }
 }
